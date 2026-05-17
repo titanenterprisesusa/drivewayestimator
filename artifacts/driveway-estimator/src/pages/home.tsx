@@ -54,11 +54,23 @@ export default function Home() {
   const travelMiles = distanceMiles >= 20 ? Math.round(distanceMiles) : 0;
   const travelPremium = travelMiles > 0 ? travelMiles * 2 : 0;
 
+  const getSealRate = (sqFt: number): number => {
+    if (sqFt <= 750)    return 0.35;
+    if (sqFt <= 1500)   return 0.32;
+    if (sqFt <= 2500)   return 0.28;
+    if (sqFt <= 5000)   return 0.25;
+    if (sqFt <= 7500)   return 0.22;
+    if (sqFt <= 10000)  return 0.20;
+    if (sqFt <= 15000)  return 0.19;
+    if (sqFt <= 25000)  return 0.18;
+    if (sqFt <= 50000)  return 0.16;
+    if (sqFt <= 100000) return 0.15;
+    return 0.14;
+  };
+
   const calculatePricing = () => {
-    let basePrice = 0;
-    if (adjustedSqFt <= 750) basePrice = adjustedSqFt * 0.35;
-    else if (adjustedSqFt <= 1500) basePrice = adjustedSqFt * 0.32;
-    else basePrice = adjustedSqFt * 0.28;
+    const rate = getSealRate(adjustedSqFt);
+    const sealingRaw = adjustedSqFt * rate;
 
     let crackFillPrice = 0;
     if (hasCrackFill) {
@@ -70,18 +82,20 @@ export default function Home() {
       }
     }
 
-    const totalPrice = basePrice + crackFillPrice + travelPremium;
+    // $250 minimum applies to sealing + crack fill combined (before travel)
+    const serviceSubtotal = Math.max(250, sealingRaw + crackFillPrice);
+    // Distribute minimum proportionally: base gets any minimum top-up
+    const basePrice = serviceSubtotal - crackFillPrice;
+    const totalPrice = serviceSubtotal + travelPremium;
     return { basePrice, crackFillPrice, totalPrice };
   };
 
   const { basePrice, crackFillPrice, totalPrice } = calculatePricing();
 
-  const rateLabel =
-    adjustedSqFt <= 750
-      ? "$0.35/sq ft"
-      : adjustedSqFt <= 1500
-      ? "$0.32/sq ft"
-      : "$0.28/sq ft";
+  const rateLabel = (() => {
+    const r = getSealRate(adjustedSqFt);
+    return `$${r.toFixed(2)}/sq ft`;
+  })();
 
   const handleAreaCalculated = (sqFt: number, lat: number, lng: number) => {
     setRawSqFt(sqFt);
