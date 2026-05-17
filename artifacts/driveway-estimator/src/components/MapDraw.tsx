@@ -158,14 +158,6 @@ export function MapDraw({
           const verts = verticesRef.current;
           const pt = e.latLng;
 
-          if (verts.length >= 3) {
-            const dist = google.maps.geometry.spherical.computeDistanceBetween(pt, verts[0]);
-            if (dist < 8) {
-              closePolygon();
-              return;
-            }
-          }
-
           const marker = new google.maps.Marker({
             position: pt,
             map,
@@ -232,7 +224,7 @@ export function MapDraw({
             ? "Click to start drawing your driveway outline"
             : vertexCount < 3
             ? `${vertexCount} point${vertexCount > 1 ? "s" : ""} placed — keep clicking`
-            : "Click near the first point to close, or tap Close Shape"}
+            : "Keep clicking to add points — tap Close Shape when done"}
         </div>
       )}
 
