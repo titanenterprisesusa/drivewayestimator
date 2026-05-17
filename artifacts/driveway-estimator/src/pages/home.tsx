@@ -221,22 +221,13 @@ export default function Home() {
               </div>
 
               {rawSqFt > 0 && (
-                <div className="bg-primary/10 border border-primary/20 p-4 rounded-md space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Drawn area</span>
-                    <span>{rawSqFt.toLocaleString()} sq ft</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">+10% estimation buffer</span>
-                    <span>+ {(adjustedSqFt - rawSqFt).toLocaleString()} sq ft</span>
-                  </div>
-                  <Separator className="bg-primary/20" />
-                  <div className="flex justify-between font-bold">
-                    <span>Estimated Area</span>
-                    <span className="text-primary text-xl" data-testid="text-square-footage">
-                      {adjustedSqFt.toLocaleString()} sq ft
-                    </span>
-                  </div>
+                <div className="bg-primary/10 border border-primary/20 p-4 rounded-md text-center">
+                  <span className="block text-xs text-muted-foreground mb-1 uppercase tracking-wide">
+                    Measured Area
+                  </span>
+                  <span className="text-3xl font-bold text-primary" data-testid="text-square-footage">
+                    {adjustedSqFt.toLocaleString()} sq ft
+                  </span>
                 </div>
               )}
 
