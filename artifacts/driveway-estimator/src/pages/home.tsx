@@ -121,11 +121,11 @@ export default function Home() {
         <TitanHeader subtitle="Driveway Estimator" />
 
         {/* Progress */}
-        <div className="flex justify-between items-center px-2">
+        <div className="flex items-center">
           {[1, 2, 3].map((s) => (
-            <div key={s} className="flex items-center">
+            <div key={s} className={`flex items-center ${s < 3 ? "flex-1" : ""}`}>
               <div
-                className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-colors ${
+                className={`w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center text-sm font-bold border-2 transition-colors ${
                   s === step
                     ? "bg-primary border-primary text-black"
                     : s < step
@@ -137,7 +137,7 @@ export default function Home() {
               </div>
               {s < 3 && (
                 <div
-                  className={`h-0.5 w-20 mx-1 transition-colors ${
+                  className={`flex-1 h-0.5 transition-colors ${
                     s < step ? "bg-primary/60" : "bg-border"
                   }`}
                 />
