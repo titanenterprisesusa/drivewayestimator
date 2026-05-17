@@ -67,7 +67,7 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
-/* Titan Enterprises color palette — black, silver, gold, steel blue */
+/* Titan Enterprises color palette — dark concrete, silver, gold, royal blue */
 :root {
   --button-outline: rgba(255,255,255, .10);
   --badge-outline: rgba(255,255,255, .05);
@@ -77,48 +77,48 @@
   --elevate-1: rgba(255,255,255, .04);
   --elevate-2: rgba(255,255,255, .09);
 
-  /* Pure black background, like the Titan logo */
-  --background: 220 14% 4%;
-  --foreground: 210 12% 90%;
+  /* Dark charcoal — matches the business card concrete texture */
+  --background: 220 8% 8%;
+  --foreground: 210 8% 92%;
 
-  --border: 218 14% 18%;
+  --border: 218 10% 17%;
 
-  /* Dark charcoal cards */
-  --card: 220 14% 8%;
-  --card-foreground: 210 12% 90%;
-  --card-border: 218 14% 18%;
+  --card: 220 8% 11%;
+  --card-foreground: 210 8% 92%;
+  --card-border: 218 10% 17%;
 
-  --sidebar: 220 14% 8%;
-  --sidebar-foreground: 210 12% 90%;
-  --sidebar-border: 218 14% 18%;
+  --sidebar: 220 8% 11%;
+  --sidebar-foreground: 210 8% 92%;
+  --sidebar-border: 218 10% 17%;
   --sidebar-primary: 43 62% 50%;
   --sidebar-primary-foreground: 0 0% 4%;
-  --sidebar-accent: 220 14% 14%;
-  --sidebar-accent-foreground: 210 12% 90%;
+  --sidebar-accent: 220 8% 16%;
+  --sidebar-accent-foreground: 210 8% 92%;
   --sidebar-ring: 43 62% 50%;
 
-  --popover: 220 14% 8%;
-  --popover-foreground: 210 12% 90%;
-  --popover-border: 218 14% 18%;
+  --popover: 220 8% 11%;
+  --popover-foreground: 210 8% 92%;
+  --popover-border: 218 10% 17%;
 
-  /* Gold — from "ENTERPRISES" lettering in the logo */
+  /* Gold — matches "ENTERPRISES" lettering */
   --primary: 43 62% 50%;
-  --primary-foreground: 220 14% 4%;
+  --primary-foreground: 220 8% 5%;
 
-  /* Steel blue — from the Spartan helmet crest */
-  --secondary: 218 14% 14%;
-  --secondary-foreground: 210 12% 90%;
+  /* Dark steel secondary */
+  --secondary: 220 8% 15%;
+  --secondary-foreground: 210 8% 92%;
 
-  --muted: 220 14% 12%;
-  --muted-foreground: 215 10% 52%;
+  --muted: 220 8% 13%;
+  --muted-foreground: 215 8% 50%;
 
-  --accent: 218 50% 40%;
-  --accent-foreground: 0 0% 98%;
+  /* Royal blue accent — Spartan helmet crest */
+  --accent: 218 55% 42%;
+  --accent-foreground: 0 0% 100%;
 
   --destructive: 0 72% 55%;
   --destructive-foreground: 0 0% 98%;
 
-  --input: 218 14% 20%;
+  --input: 218 10% 19%;
   --ring: 43 62% 50%;
 
   --chart-1: 43 62% 50%;
@@ -241,23 +241,58 @@
   }
 }
 
-/* Titan metallic silver title effect */
+/* ── Titan Enterprises brand styles ── */
+
+/* Dark concrete/stone background — matches business card texture */
+.titan-bg {
+  background-color: hsl(220 8% 7%);
+  background-image:
+    radial-gradient(ellipse at 15% 25%, hsl(220 12% 11% / 0.8) 0%, transparent 55%),
+    radial-gradient(ellipse at 85% 75%, hsl(220 10% 5% / 0.9) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 50%, hsl(218 8% 9% / 0.4) 0%, transparent 70%);
+}
+
+/* "TITAN" — large metallic chrome gradient */
 .titan-title {
-  background: linear-gradient(180deg, #ffffff 0%, #c8d4dc 30%, #8fa0b0 60%, #c8d4dc 80%, #ffffff 100%);
+  background: linear-gradient(
+    180deg,
+    #ffffff 0%,
+    #e8edf2 15%,
+    #b8c8d8 35%,
+    #8090a4 55%,
+    #c4d0dc 75%,
+    #ffffff 100%
+  );
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  letter-spacing: 0.15em;
   font-family: 'Oswald', sans-serif;
+  font-weight: 700;
+  font-size: 3.5rem;
+  letter-spacing: 0.18em;
+  line-height: 1;
   text-shadow: none;
 }
 
-.titan-subtitle {
-  color: hsl(43 62% 50%);
-  letter-spacing: 0.2em;
-  font-size: 0.7rem;
+/* "ENTERPRISES" — gold lettering, wide-tracked, smaller */
+.enterprises-title {
+  font-family: 'Oswald', sans-serif;
+  color: #C9A84C;
+  letter-spacing: 0.42em;
+  font-size: 0.85rem;
   font-weight: 600;
   text-transform: uppercase;
+  line-height: 1.6;
+  padding-left: 0.42em; /* optical indent from letter-spacing */
+}
+
+/* Royal blue divider — matches the line on the business card */
+.titan-blue-line {
+  height: 2px;
+  background: linear-gradient(90deg, transparent 0%, #3A6BC4 20%, #4A85E8 50%, #3A6BC4 80%, transparent 100%);
+  margin: 6px auto 0;
+  width: 70%;
+  max-width: 260px;
 }
 
 /**
