@@ -64,7 +64,10 @@ export default function Home() {
     if (hasCrackFill) {
       if (adjustedSqFt <= 750) crackFillPrice = 50;
       else if (adjustedSqFt <= 1500) crackFillPrice = 65;
-      else crackFillPrice = 80;
+      else {
+        // $80 base for 1500–2000 sq ft, +$10 per additional 200 sq ft above 2000
+        crackFillPrice = 80 + Math.ceil(Math.max(0, adjustedSqFt - 2000) / 200) * 10;
+      }
     }
 
     const totalPrice = basePrice + crackFillPrice + travelPremium;
@@ -277,7 +280,7 @@ export default function Home() {
               </div>
 
               {/* Crack Fill */}
-              <div className="bg-secondary/40 border border-border p-4 rounded-md space-y-1">
+              <div className="bg-secondary/40 border border-border p-4 rounded-md space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
                     <Checkbox
@@ -291,12 +294,18 @@ export default function Home() {
                     </Label>
                   </div>
                   <span className="text-primary font-bold text-sm">
-                    +{adjustedSqFt <= 750 ? "$50" : adjustedSqFt <= 1500 ? "$65" : "$80"}
+                    {adjustedSqFt <= 750
+                      ? "+$50"
+                      : adjustedSqFt <= 1500
+                      ? "+$65"
+                      : `+$${80 + Math.ceil(Math.max(0, adjustedSqFt - 2000) / 200) * 10}`}
                   </span>
                 </div>
                 {adjustedSqFt > 1500 && hasCrackFill && (
-                  <p className="text-xs text-muted-foreground ml-8">
-                    Estimated — final price confirmed on-site.
+                  <p className="text-xs text-muted-foreground ml-8 leading-relaxed">
+                    Crack fill is an estimate only. Final cost will be confirmed on-site via a
+                    measurement process, with a minimum of the estimated amount above, up to
+                    $1.20 per linear foot.
                   </p>
                 )}
               </div>
