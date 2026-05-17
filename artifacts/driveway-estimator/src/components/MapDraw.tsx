@@ -1,9 +1,15 @@
 import { useEffect, useRef, useState } from "react";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
-import "leaflet-draw/dist/leaflet.draw.css";
-import "leaflet-draw";
-import * as turf from "@turf/turf";
+import { Loader } from "@googlemaps/js-api-loader";
+
+let _cachedApiKey: string | null = null;
+
+async function fetchApiKey(): Promise<string> {
+  if (_cachedApiKey !== null) return _cachedApiKey;
+  const res = await fetch("/api/config");
+  const data = await res.json();
+  _cachedApiKey = data.googleMapsApiKey ?? "";
+  return _cachedApiKey!;
+}
 
 export function MapDraw({
   address,
@@ -12,80 +18,126 @@ export function MapDraw({
   address: string;
   onAreaCalculated: (sqFt: number, lat: number, lng: number) => void;
 }) {
-  const mapRef = useRef<HTMLDivElement>(null);
-  const [map, setMap] = useState<L.Map | null>(null);
-  const geocodedCoordsRef = useRef<{ lat: number; lng: number } | null>(null);
+  const mapDivRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<google.maps.Map | null>(null);
+  const geocoderRef = useRef<google.maps.Geocoder | null>(null);
+  const polygonRef = useRef<google.maps.Polygon | null>(null);
+  const onAreaRef = useRef(onAreaCalculated);
+  onAreaRef.current = onAreaCalculated;
+
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
-    if (!mapRef.current || map) return;
+    let cancelled = false;
 
-    const m = L.map(mapRef.current, { maxZoom: 22, zoomControl: true }).setView(
-      [39.8283, -98.5795],
-      4
-    );
+    const init = async () => {
+      try {
+        const apiKey = await fetchApiKey();
+        const loader = new Loader({
+          apiKey,
+          version: "weekly",
+          libraries: ["drawing", "geometry"],
+        });
 
-    L.tileLayer(
-      "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-      { maxNativeZoom: 19, maxZoom: 22, attribution: "Tiles &copy; Esri" }
-    ).addTo(m);
+        await loader.load();
+        if (cancelled || !mapDivRef.current) return;
 
-    const drawnItems = new L.FeatureGroup();
-    m.addLayer(drawnItems);
+        const map = new google.maps.Map(mapDivRef.current, {
+          center: { lat: 41.7065, lng: -71.4538 },
+          zoom: 18,
+          mapTypeId: "satellite",
+          tilt: 0,
+          mapTypeControl: false,
+          fullscreenControl: false,
+          streetViewControl: false,
+        });
+        mapRef.current = map;
+        geocoderRef.current = new google.maps.Geocoder();
 
-    const drawControl = new (L.Control as any).Draw({
-      edit: { featureGroup: drawnItems },
-      draw: {
-        polygon: {
-          shapeOptions: {
-            color: "#C9A84C",
-            fillColor: "#C9A84C",
-            fillOpacity: 0.2,
-            weight: 2,
+        const drawingManager = new google.maps.drawing.DrawingManager({
+          drawingMode: google.maps.drawing.OverlayType.POLYGON,
+          drawingControl: true,
+          drawingControlOptions: {
+            position: google.maps.ControlPosition.TOP_CENTER,
+            drawingModes: [google.maps.drawing.OverlayType.POLYGON],
           },
-        },
-        polyline: false,
-        rectangle: false,
-        circle: false,
-        marker: false,
-        circlemarker: false,
-      },
-    });
-    m.addControl(drawControl);
+          polygonOptions: {
+            fillColor: "#C9A84C",
+            fillOpacity: 0.25,
+            strokeColor: "#C9A84C",
+            strokeWeight: 2,
+            editable: true,
+            draggable: true,
+          },
+        });
+        drawingManager.setMap(map);
 
-    m.on((L as any).Draw.Event.CREATED, function (event: any) {
-      drawnItems.clearLayers();
-      const layer = event.layer;
-      drawnItems.addLayer(layer);
+        google.maps.event.addListener(
+          drawingManager,
+          "polygoncomplete",
+          (polygon: google.maps.Polygon) => {
+            if (polygonRef.current) polygonRef.current.setMap(null);
+            polygonRef.current = polygon;
+            drawingManager.setDrawingMode(null);
 
-      const geojson = layer.toGeoJSON();
-      const areaSqMeters = turf.area(geojson);
-      const areaSqFt = Math.round(areaSqMeters * 10.7639);
+            const compute = () => {
+              const path = polygon.getPath();
+              const area = google.maps.geometry.spherical.computeArea(path);
+              const sqFt = Math.round(area * 10.7639);
+              const pts = path.getArray();
+              const lat = pts.reduce((s, p) => s + p.lat(), 0) / pts.length;
+              const lng = pts.reduce((s, p) => s + p.lng(), 0) / pts.length;
+              onAreaRef.current(sqFt, lat, lng);
+            };
 
-      const coords = geocodedCoordsRef.current;
-      onAreaCalculated(areaSqFt, coords?.lat ?? 0, coords?.lng ?? 0);
-    });
+            compute();
+            google.maps.event.addListener(polygon.getPath(), "set_at", compute);
+            google.maps.event.addListener(polygon.getPath(), "insert_at", compute);
+            google.maps.event.addListener(polygon.getPath(), "remove_at", compute);
+          }
+        );
 
-    setMap(m);
+        if (!cancelled) setStatus("ready");
+      } catch (err) {
+        if (!cancelled) {
+          console.error("Google Maps load error:", err);
+          setErrorMsg("Failed to load Google Maps. Check that the API key is valid.");
+          setStatus("error");
+        }
+      }
+    };
+
+    init();
     return () => {
-      m.remove();
+      cancelled = true;
     };
   }, []);
 
+  // Geocode address and pan map once it's ready
   useEffect(() => {
-    if (!map || !address) return;
-    fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`
-    )
-      .then((res) => res.json())
-      .then((data) => {
-        if (data && data.length > 0) {
-          const lat = parseFloat(data[0].lat);
-          const lng = parseFloat(data[0].lon);
-          geocodedCoordsRef.current = { lat, lng };
-          map.setView([lat, lng], 20);
-        }
-      });
-  }, [map, address]);
+    if (status !== "ready" || !geocoderRef.current || !mapRef.current || !address) return;
+    geocoderRef.current.geocode({ address }, (results, gStatus) => {
+      if (gStatus === "OK" && results?.[0]) {
+        mapRef.current!.panTo(results[0].geometry.location);
+        mapRef.current!.setZoom(20);
+      }
+    });
+  }, [address, status]);
 
-  return <div ref={mapRef} className="w-full h-full min-h-[400px] z-0 rounded-md" />;
+  return (
+    <div className="relative w-full h-full min-h-[400px]">
+      <div ref={mapDivRef} className="w-full h-full" />
+      {status === "loading" && (
+        <div className="absolute inset-0 flex items-center justify-center bg-card/80 rounded-md">
+          <p className="text-muted-foreground text-sm">Loading map…</p>
+        </div>
+      )}
+      {status === "error" && (
+        <div className="absolute inset-0 flex items-center justify-center bg-card/80 rounded-md px-6">
+          <p className="text-red-400 text-sm text-center">{errorMsg}</p>
+        </div>
+      )}
+    </div>
+  );
 }
