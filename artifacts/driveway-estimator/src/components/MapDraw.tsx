@@ -1,20 +1,46 @@
 import { useEffect, useRef, useState } from "react";
-import { setOptions, importLibrary } from "@googlemaps/js-api-loader";
 
-let _mapsReady = false;
-let _apiKeySet = false;
+declare global {
+  interface Window {
+    __gmCallback?: () => void;
+    google: typeof google;
+  }
+}
 
-async function ensureMapsLoaded(apiKey: string) {
-  if (!_apiKeySet) {
-    setOptions({ apiKey, version: "weekly" });
-    _apiKeySet = true;
-  }
-  if (!_mapsReady) {
-    await importLibrary("maps");
-    await importLibrary("geometry");
-    await importLibrary("geocoding");
-    _mapsReady = true;
-  }
+let _pendingCallbacks: Array<() => void> = [];
+
+function loadGoogleMapsScript(apiKey: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    // Already fully loaded
+    if (typeof window.google !== "undefined" && window.google.maps?.Map) {
+      return resolve();
+    }
+
+    // Script tag already in DOM — just wait for callback
+    if (document.querySelector('script[src*="maps.googleapis.com/maps/api/js"]')) {
+      _pendingCallbacks.push(resolve);
+      return;
+    }
+
+    // Fresh inject
+    _pendingCallbacks.push(resolve);
+
+    window.__gmCallback = () => {
+      delete window.__gmCallback;
+      const cbs = _pendingCallbacks.splice(0);
+      cbs.forEach((cb) => cb());
+    };
+
+    const script = document.createElement("script");
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&v=weekly&libraries=geometry,geocoding&callback=__gmCallback`;
+    script.async = true;
+    script.defer = true;
+    script.onerror = () => {
+      _pendingCallbacks.splice(0);
+      reject(new Error("Google Maps script failed to load. Verify the Maps JavaScript API is enabled in Google Cloud Console."));
+    };
+    document.head.appendChild(script);
+  });
 }
 
 export function MapDraw({
@@ -28,12 +54,10 @@ export function MapDraw({
   const mapRef = useRef<google.maps.Map | null>(null);
   const geocoderRef = useRef<google.maps.Geocoder | null>(null);
 
-  // Drawing state — all stored in refs to avoid stale closures
   const verticesRef = useRef<google.maps.LatLng[]>([]);
   const markersRef = useRef<google.maps.Marker[]>([]);
   const linesRef = useRef<google.maps.Polyline[]>([]);
   const polygonRef = useRef<google.maps.Polygon | null>(null);
-  const previewLineRef = useRef<google.maps.Polyline | null>(null);
   const isClosedRef = useRef(false);
 
   const onAreaRef = useRef(onAreaCalculated);
@@ -44,13 +68,15 @@ export function MapDraw({
   const [vertexCount, setVertexCount] = useState(0);
   const [isClosed, setIsClosed] = useState(false);
 
-  const computeAndReport = (path: google.maps.MVCArray<google.maps.LatLng> | google.maps.LatLng[]) => {
-    const pts = Array.isArray(path) ? path : path.getArray();
-    if (pts.length < 3) return;
-    const area = google.maps.geometry.spherical.computeArea(pts);
+  const computeAndReport = (
+    pts: google.maps.LatLng[] | google.maps.MVCArray<google.maps.LatLng>
+  ) => {
+    const arr = Array.isArray(pts) ? pts : pts.getArray();
+    if (arr.length < 3) return;
+    const area = google.maps.geometry.spherical.computeArea(arr);
     const sqFt = Math.round(area * 10.7639);
-    const lat = pts.reduce((s, p) => s + p.lat(), 0) / pts.length;
-    const lng = pts.reduce((s, p) => s + p.lng(), 0) / pts.length;
+    const lat = arr.reduce((s, p) => s + p.lat(), 0) / arr.length;
+    const lng = arr.reduce((s, p) => s + p.lng(), 0) / arr.length;
     onAreaRef.current(sqFt, lat, lng);
   };
 
@@ -58,14 +84,11 @@ export function MapDraw({
     const verts = verticesRef.current;
     if (verts.length < 3) return;
 
-    // Remove markers and lines
     markersRef.current.forEach((m) => m.setMap(null));
     linesRef.current.forEach((l) => l.setMap(null));
-    if (previewLineRef.current) previewLineRef.current.setMap(null);
     markersRef.current = [];
     linesRef.current = [];
 
-    // Draw editable polygon
     if (polygonRef.current) polygonRef.current.setMap(null);
     const polygon = new google.maps.Polygon({
       paths: verts,
@@ -93,7 +116,6 @@ export function MapDraw({
     verticesRef.current = [];
     markersRef.current.forEach((m) => m.setMap(null));
     linesRef.current.forEach((l) => l.setMap(null));
-    if (previewLineRef.current) previewLineRef.current.setMap(null);
     if (polygonRef.current) polygonRef.current.setMap(null);
     markersRef.current = [];
     linesRef.current = [];
@@ -114,7 +136,7 @@ export function MapDraw({
         const apiKey: string = data.googleMapsApiKey ?? "";
         if (!apiKey) throw new Error("No API key returned from server.");
 
-        await ensureMapsLoaded(apiKey);
+        await loadGoogleMapsScript(apiKey);
         if (cancelled || !mapDivRef.current) return;
 
         const map = new google.maps.Map(mapDivRef.current, {
@@ -136,7 +158,6 @@ export function MapDraw({
           const verts = verticesRef.current;
           const pt = e.latLng;
 
-          // Auto-close if clicking near the first vertex (3+ verts already)
           if (verts.length >= 3) {
             const dist = google.maps.geometry.spherical.computeDistanceBetween(pt, verts[0]);
             if (dist < 8) {
@@ -145,7 +166,6 @@ export function MapDraw({
             }
           }
 
-          // Add vertex marker
           const marker = new google.maps.Marker({
             position: pt,
             map,
@@ -161,7 +181,6 @@ export function MapDraw({
           });
           markersRef.current.push(marker);
 
-          // Draw line from last vertex
           if (verts.length >= 1) {
             const line = new google.maps.Polyline({
               path: [verts[verts.length - 1], pt],
@@ -182,8 +201,8 @@ export function MapDraw({
       } catch (err: unknown) {
         if (!cancelled) {
           const msg = err instanceof Error ? err.message : String(err);
-          console.error("Google Maps error:", msg);
-          setErrorMsg(`Map failed to load: ${msg}`);
+          console.error("Google Maps load error:", msg);
+          setErrorMsg(msg);
           setStatus("error");
         }
       }
@@ -193,7 +212,6 @@ export function MapDraw({
     return () => { cancelled = true; };
   }, []);
 
-  // Geocode address when map is ready
   useEffect(() => {
     if (status !== "ready" || !geocoderRef.current || !mapRef.current || !address) return;
     geocoderRef.current.geocode({ address }, (results, gStatus) => {
@@ -208,18 +226,16 @@ export function MapDraw({
     <div className="relative w-full h-full min-h-[400px]">
       <div ref={mapDivRef} className="w-full h-full" />
 
-      {/* Drawing instructions overlay */}
       {status === "ready" && !isClosed && (
         <div className="absolute bottom-3 left-1/2 -translate-x-1/2 bg-black/70 text-white text-xs px-3 py-2 rounded-full pointer-events-none text-center whitespace-nowrap">
           {vertexCount === 0
             ? "Click to start drawing your driveway outline"
             : vertexCount < 3
-            ? `${vertexCount} point${vertexCount > 1 ? "s" : ""} placed — keep clicking to trace the shape`
-            : "Click near the first point to close, or keep adding points"}
+            ? `${vertexCount} point${vertexCount > 1 ? "s" : ""} placed — keep clicking`
+            : "Click near the first point to close, or tap Close Shape"}
         </div>
       )}
 
-      {/* Buttons */}
       {status === "ready" && (
         <div className="absolute top-3 right-3 flex flex-col gap-2">
           {!isClosed && vertexCount >= 3 && (
