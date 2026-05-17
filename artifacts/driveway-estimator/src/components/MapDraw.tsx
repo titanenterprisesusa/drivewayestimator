@@ -99,10 +99,20 @@ export function MapDraw({
         );
 
         if (!cancelled) setStatus("ready");
-      } catch (err) {
+      } catch (err: unknown) {
         if (!cancelled) {
-          console.error("Google Maps load error:", err);
-          setErrorMsg("Failed to load Google Maps. Check that the API key is valid.");
+          const msg =
+            err instanceof Error
+              ? err.message
+              : typeof err === "object" && err !== null && "type" in err
+              ? `Event: ${(err as Event).type}`
+              : String(err);
+          console.error("Google Maps load error:", msg, err);
+          setErrorMsg(
+            `Maps failed to load (${msg || "unknown error"}). ` +
+            "Make sure the Maps JavaScript API is enabled in Google Cloud Console, " +
+            "and that the key has no HTTP referrer restrictions blocking this domain."
+          );
           setStatus("error");
         }
       }
