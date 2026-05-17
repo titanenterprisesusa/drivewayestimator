@@ -229,8 +229,9 @@ export default function Home() {
             <CardContent className="pt-6 space-y-4">
               <h2 className="text-xl font-bold">Measure Your Driveway</h2>
               <p className="text-sm text-muted-foreground">
-                Use the draw tool (polygon icon) on the map to trace the outline of your driveway.
-                Zoom in for the best accuracy.
+                Zoom in on your driveway, then click to place points around its outline. Click near
+                the first point — or tap <strong className="text-foreground">Close Shape</strong> — to
+                finish. You can drag any corner to adjust.
               </p>
 
               <div className="h-[420px] border border-border rounded-md overflow-hidden relative z-0">
