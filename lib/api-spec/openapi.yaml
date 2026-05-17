@@ -1,22 +1,24 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Driveway Estimator API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: estimates
+    description: Driveway estimates
+  - name: qr
+    description: QR code generation
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +26,83 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /estimates:
+    get:
+      operationId: listEstimates
+      tags: [estimates]
+      summary: List all estimates
+      responses:
+        "200":
+          description: List of estimates
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Estimate"
+    post:
+      operationId: createEstimate
+      tags: [estimates]
+      summary: Submit a new estimate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EstimateInput"
+      responses:
+        "201":
+          description: Created estimate
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Estimate"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /estimates/{id}:
+    get:
+      operationId: getEstimate
+      tags: [estimates]
+      summary: Get a single estimate
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Estimate
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Estimate"
+        "404":
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /qr:
+    get:
+      operationId: getQrCode
+      tags: [qr]
+      summary: Get QR code for the estimator app
+      responses:
+        "200":
+          description: QR code SVG or data URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QrCode"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +113,107 @@ components:
       required:
         - status
 
+    EstimateInput:
+      type: object
+      required:
+        - customerName
+        - phone
+        - email
+        - address
+        - squareFootage
+        - basePrice
+        - totalPrice
+        - hasCrackFill
+      properties:
+        customerName:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+        address:
+          type: string
+        squareFootage:
+          type: number
+          description: Estimated square footage of the driveway
+        hasTreeObstruction:
+          type: boolean
+          description: Whether trees/obstructions were detected
+        basePrice:
+          type: number
+          description: Sealing price before crack fill
+        crackFillPrice:
+          type: ["number", "null"]
+          description: Additional crack fill price if selected
+        totalPrice:
+          type: number
+          description: Total estimated price
+        hasCrackFill:
+          type: boolean
+          description: Whether crack fill was selected
+        notes:
+          type: ["string", "null"]
+          description: Optional notes
+
+    Estimate:
+      type: object
+      required:
+        - id
+        - customerName
+        - phone
+        - email
+        - address
+        - squareFootage
+        - basePrice
+        - totalPrice
+        - hasCrackFill
+        - createdAt
+      properties:
+        id:
+          type: integer
+        customerName:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+        address:
+          type: string
+        squareFootage:
+          type: number
+        hasTreeObstruction:
+          type: boolean
+        basePrice:
+          type: number
+        crackFillPrice:
+          type: ["number", "null"]
+        totalPrice:
+          type: number
+        hasCrackFill:
+          type: boolean
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    QrCode:
+      type: object
+      required:
+        - dataUrl
+        - url
+      properties:
+        dataUrl:
+          type: string
+          description: Base64 encoded QR code image
+        url:
+          type: string
+          description: The URL encoded in the QR code
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string

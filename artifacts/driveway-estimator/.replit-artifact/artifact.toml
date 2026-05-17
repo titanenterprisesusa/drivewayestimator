@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Driveway Estimator"
+version = "1.0.0"
+id = "artifacts/driveway-estimator"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 26255
+
+[services.development]
+run = "pnpm --filter @workspace/driveway-estimator run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/driveway-estimator", "run", "build" ]
+publicDir = "artifacts/driveway-estimator/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "26255"
+BASE_PATH = "/"
