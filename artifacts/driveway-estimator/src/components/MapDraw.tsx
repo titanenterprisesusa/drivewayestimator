@@ -18,9 +18,14 @@ export function MapDraw({
   useEffect(() => {
     if (!mapRef.current || map) return;
 
-    const m = L.map(mapRef.current).setView([39.8283, -98.5795], 4);
+    const m = L.map(mapRef.current, {
+      maxZoom: 22,
+      zoomControl: true,
+    }).setView([39.8283, -98.5795], 4);
+
     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-      maxZoom: 20,
+      maxNativeZoom: 19,
+      maxZoom: 22,
       attribution: 'Tiles &copy; Esri'
     }).addTo(m);
 
@@ -30,7 +35,14 @@ export function MapDraw({
     const drawControl = new (L.Control as any).Draw({
       edit: { featureGroup: drawnItems },
       draw: {
-        polygon: true,
+        polygon: {
+          shapeOptions: {
+            color: '#C9A84C',
+            fillColor: '#C9A84C',
+            fillOpacity: 0.25,
+            weight: 2,
+          },
+        },
         polyline: false,
         rectangle: false,
         circle: false,
