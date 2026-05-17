@@ -5,6 +5,7 @@ import {
   CreateEstimateBody,
   GetEstimateParams,
 } from "@workspace/api-zod";
+import { appendEstimateToSheet } from "../lib/googleSheets";
 
 const router = Router();
 
@@ -43,6 +44,21 @@ router.post("/estimates", async (req, res) => {
         notes: parsed.data.notes ?? null,
       })
       .returning();
+
+    // Fire-and-forget: write to Google Sheet in background (never blocks the response)
+    appendEstimateToSheet({
+      customerName: estimate.customerName,
+      phone: estimate.phone,
+      email: estimate.email,
+      address: estimate.address,
+      squareFootage: estimate.squareFootage,
+      basePrice: estimate.basePrice,
+      hasCrackFill: estimate.hasCrackFill,
+      crackFillPrice: estimate.crackFillPrice,
+      totalPrice: estimate.totalPrice,
+      createdAt: estimate.createdAt,
+    }).catch(() => {});
+
     res.status(201).json(estimate);
   } catch (err) {
     res.status(500).json({ error: "Failed to create estimate" });

@@ -1,8 +1,7 @@
 // Google Sheets integration via Replit Connectors SDK
 // Handles sheet creation (first-run) and appending estimate rows
 import { ReplitConnectors } from "@replit/connectors-sdk";
-import { db } from "@workspace/db";
-import { settingsTable } from "@workspace/db/schema/settings";
+import { db, settingsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { logger } from "./logger";
 
