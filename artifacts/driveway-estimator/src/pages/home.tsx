@@ -41,8 +41,13 @@ export default function Home() {
     customerName: "",
     phone: "",
     email: "",
-    address: "",
+    city: "",
+    state: "",
+    zip: "",
   });
+
+  // Combine city/state/zip into a single address string for the map and API
+  const address = [formData.city, formData.state, formData.zip].filter(Boolean).join(", ");
 
   // Raw area from polygon draw
   const [rawSqFt, setRawSqFt] = useState(0);
@@ -87,12 +92,13 @@ export default function Home() {
       }
     }
 
-    // $250 minimum applies to sealing + crack fill combined (before travel)
-    const serviceSubtotal = Math.max(250, sealingRaw + crackFillPrice);
-    // Apply 15% promo discount if QR code was scanned
-    const discountAmount = hasPromo ? serviceSubtotal * 0.15 : 0;
-    const discountedSubtotal = serviceSubtotal - discountAmount;
-    // Distribute minimum proportionally: base gets any minimum top-up
+    // $250 minimum before any discount
+    const serviceSubtotalBeforeDiscount = Math.max(250, sealingRaw + crackFillPrice);
+    // Apply 15% promo discount but never let the post-discount total fall below $225
+    const discountedSubtotal = hasPromo
+      ? Math.max(225, serviceSubtotalBeforeDiscount * 0.85)
+      : serviceSubtotalBeforeDiscount;
+    const discountAmount = serviceSubtotalBeforeDiscount - discountedSubtotal;
     const basePrice = discountedSubtotal - crackFillPrice;
     const totalPrice = discountedSubtotal + travelPremium;
     return { basePrice, crackFillPrice, discountAmount, totalPrice };
@@ -125,7 +131,10 @@ export default function Home() {
     createEstimate.mutate(
       {
         data: {
-          ...formData,
+          customerName: formData.customerName,
+          phone: formData.phone,
+          email: formData.email,
+          address,
           squareFootage: adjustedSqFt,
           hasTreeObstruction: false,
           basePrice,
@@ -214,21 +223,46 @@ export default function Home() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="address">Service Address</Label>
+                <Label htmlFor="city">City</Label>
                 <Input
-                  id="address"
-                  data-testid="input-address"
-                  value={formData.address}
-                  onChange={(e) => setFormData((f) => ({ ...f, address: e.target.value }))}
-                  placeholder="123 Main St, City, ST"
+                  id="city"
+                  data-testid="input-city"
+                  value={formData.city}
+                  onChange={(e) => setFormData((f) => ({ ...f, city: e.target.value }))}
+                  placeholder="Warwick"
                 />
+              </div>
+              <div className="flex gap-3">
+                <div className="space-y-2 w-1/2">
+                  <Label htmlFor="state">State</Label>
+                  <Input
+                    id="state"
+                    data-testid="input-state"
+                    value={formData.state}
+                    onChange={(e) => setFormData((f) => ({ ...f, state: e.target.value }))}
+                    placeholder="RI"
+                    maxLength={2}
+                  />
+                </div>
+                <div className="space-y-2 w-1/2">
+                  <Label htmlFor="zip">Zip Code</Label>
+                  <Input
+                    id="zip"
+                    data-testid="input-zip"
+                    value={formData.zip}
+                    onChange={(e) => setFormData((f) => ({ ...f, zip: e.target.value }))}
+                    placeholder="02888"
+                    maxLength={10}
+                  />
+                </div>
               </div>
               <Button
                 data-testid="button-next-step-1"
                 className="w-full mt-4"
                 onClick={() => setStep(2)}
                 disabled={
-                  !formData.customerName || !formData.phone || !formData.email || !formData.address
+                  !formData.customerName || !formData.phone || !formData.email ||
+                  !formData.city || !formData.state || !formData.zip
                 }
               >
                 Next Step
@@ -249,7 +283,7 @@ export default function Home() {
               </p>
 
               <div className="h-[420px] border border-border rounded-md overflow-hidden relative z-0">
-                <MapDraw address={formData.address} onAreaCalculated={handleAreaCalculated} />
+                <MapDraw address={address} onAreaCalculated={handleAreaCalculated} />
               </div>
 
               {rawSqFt > 0 && (
