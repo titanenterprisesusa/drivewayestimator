@@ -32,6 +32,7 @@ export default function Home() {
   const createEstimate = useCreateEstimate();
 
   const [step, setStep] = useState(1);
+  const [marketingConsent, setMarketingConsent] = useState(true);
   const [formData, setFormData] = useState({
     customerName: "",
     phone: "",
@@ -358,7 +359,24 @@ export default function Home() {
                 </p>
               </div>
 
-              <div className="flex gap-3 pt-2">
+              <div className="flex items-start gap-3 pt-2 pb-1">
+                <Checkbox
+                  id="marketing-consent"
+                  checked={marketingConsent}
+                  onCheckedChange={(v) => setMarketingConsent(Boolean(v))}
+                  className="mt-0.5 shrink-0"
+                />
+                <label
+                  htmlFor="marketing-consent"
+                  className="text-xs text-muted-foreground leading-relaxed cursor-pointer"
+                >
+                  I consent to receive promotional communications, service updates, and marketing
+                  materials from Titan Enterprises via email or phone. You may withdraw consent at
+                  any time by contacting us directly.
+                </label>
+              </div>
+
+              <div className="flex gap-3 pt-1">
                 <Button
                   variant="outline"
                   className="w-1/3"
