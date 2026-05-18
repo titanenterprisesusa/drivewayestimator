@@ -152,6 +152,58 @@ export async function appendEstimateToSheet(estimate: {
       throw new Error(`Sheets append failed: ${appendRes.status} ${errText}`);
     }
 
+    // Look up the actual integer sheetId for the "Estimates" tab
+    let gridSheetId = 0;
+    try {
+      const metaRes = await connectors.proxy(
+        "google-sheet",
+        `/v4/spreadsheets/${sheetId}?fields=sheets.properties`,
+        { method: "GET" }
+      );
+      if (metaRes.ok) {
+        const meta = await metaRes.json() as { sheets: { properties: { sheetId: number; title: string } }[] };
+        const tab = meta.sheets?.find((s) => s.properties.title === "Estimates");
+        if (tab) gridSheetId = tab.properties.sheetId;
+      }
+    } catch { /* fall back to 0 */ }
+
+    // Apply white background + black text to all data rows (row index 1 onwards)
+    // so rows are always readable regardless of Google Sheets default theme
+    const formatRes = await connectors.proxy(
+      "google-sheet",
+      `/v4/spreadsheets/${sheetId}:batchUpdate`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          requests: [
+            {
+              repeatCell: {
+                range: {
+                  sheetId: gridSheetId,
+                  startRowIndex: 1,   // skip header row
+                  startColumnIndex: 0,
+                  endColumnIndex: 12,
+                },
+                cell: {
+                  userEnteredFormat: {
+                    backgroundColor: { red: 1, green: 1, blue: 1 },
+                    textFormat: { foregroundColor: { red: 0, green: 0, blue: 0 }, bold: false },
+                  },
+                },
+                fields: "userEnteredFormat(backgroundColor,textFormat)",
+              },
+            },
+          ],
+        }),
+      }
+    );
+
+    if (!formatRes.ok) {
+      const errText = await formatRes.text();
+      logger.warn({ errText }, "Could not apply data-row formatting to Google Sheet");
+    }
+
     logger.info({ sheetId, customerName: estimate.customerName }, "Appended estimate to Google Sheet");
   } catch (err) {
     logger.error({ err }, "Failed to append estimate to Google Sheet");

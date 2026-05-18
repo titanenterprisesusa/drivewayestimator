@@ -59,6 +59,7 @@ export function MapDraw({
   const linesRef = useRef<google.maps.Polyline[]>([]);
   const polygonRef = useRef<google.maps.Polygon | null>(null);
   const isClosedRef = useRef(false);
+  const firstMarkerRef = useRef<google.maps.Marker | null>(null);
 
   const onAreaRef = useRef(onAreaCalculated);
   onAreaRef.current = onAreaCalculated;
@@ -120,10 +121,39 @@ export function MapDraw({
     markersRef.current = [];
     linesRef.current = [];
     polygonRef.current = null;
+    firstMarkerRef.current = null;
     isClosedRef.current = false;
     setIsClosed(false);
     setVertexCount(0);
     onAreaRef.current(0, 0, 0);
+  };
+
+  // Update first marker icon to show it's clickable when ≥3 points placed
+  const updateFirstMarkerIcon = (count: number) => {
+    const fm = firstMarkerRef.current;
+    if (!fm) return;
+    if (count >= 3) {
+      fm.setIcon({
+        path: google.maps.SymbolPath.CIRCLE,
+        scale: 10,
+        fillColor: "#ffffff",
+        fillOpacity: 1,
+        strokeColor: "#C9A84C",
+        strokeWeight: 3,
+      });
+      fm.setTitle("Click to close shape");
+      (fm as any).setOptions({ cursor: "pointer" });
+    } else {
+      fm.setIcon({
+        path: google.maps.SymbolPath.CIRCLE,
+        scale: 8,
+        fillColor: "#C9A84C",
+        fillOpacity: 1,
+        strokeColor: "#ffffff",
+        strokeWeight: 2,
+      });
+      fm.setTitle("");
+    }
   };
 
   useEffect(() => {
@@ -158,12 +188,13 @@ export function MapDraw({
           const verts = verticesRef.current;
           const pt = e.latLng;
 
+          const isFirst = verts.length === 0;
           const marker = new google.maps.Marker({
             position: pt,
             map,
             icon: {
               path: google.maps.SymbolPath.CIRCLE,
-              scale: verts.length === 0 ? 8 : 6,
+              scale: isFirst ? 8 : 6,
               fillColor: "#C9A84C",
               fillOpacity: 1,
               strokeColor: "#ffffff",
@@ -171,6 +202,16 @@ export function MapDraw({
             },
             zIndex: 10,
           });
+
+          if (isFirst) {
+            firstMarkerRef.current = marker;
+            marker.addListener("click", () => {
+              if (!isClosedRef.current && verticesRef.current.length >= 3) {
+                closePolygon();
+              }
+            });
+          }
+
           markersRef.current.push(marker);
 
           if (verts.length >= 1) {
@@ -186,7 +227,9 @@ export function MapDraw({
 
           verts.push(pt);
           verticesRef.current = verts;
-          setVertexCount(verts.length);
+          const newCount = verts.length;
+          setVertexCount(newCount);
+          updateFirstMarkerIcon(newCount);
         });
 
         if (!cancelled) setStatus("ready");

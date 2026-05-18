@@ -101,8 +101,12 @@ export default function Home() {
   const { basePrice, crackFillPrice, discountAmount, totalPrice } = calculatePricing();
 
   const rateLabel = (() => {
+    if (adjustedSqFt === 0) return `$${getSealRate(0).toFixed(2)}/sq ft`;
     const r = getSealRate(adjustedSqFt);
-    return `$${r.toFixed(2)}/sq ft`;
+    const sealingRaw = adjustedSqFt * r;
+    // If the raw sealing cost falls below the $250 minimum, show the effective rate
+    const effectiveRate = sealingRaw < 250 ? 250 / adjustedSqFt : r;
+    return `$${effectiveRate.toFixed(2)}/sq ft`;
   })();
 
   const handleAreaCalculated = (sqFt: number, lat: number, lng: number) => {
