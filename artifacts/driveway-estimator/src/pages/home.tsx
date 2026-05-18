@@ -41,13 +41,14 @@ export default function Home() {
     customerName: "",
     phone: "",
     email: "",
+    street: "",
     city: "",
     state: "",
     zip: "",
   });
 
-  // Combine city/state/zip into a single address string for the map and API
-  const address = [formData.city, formData.state, formData.zip].filter(Boolean).join(", ");
+  // Full address string used for geocoding the map and stored in DB/Sheets
+  const address = [formData.street, formData.city, formData.state, formData.zip].filter(Boolean).join(", ");
 
   // Raw area from polygon draw
   const [rawSqFt, setRawSqFt] = useState(0);
@@ -223,6 +224,16 @@ export default function Home() {
                 />
               </div>
               <div className="space-y-2">
+                <Label htmlFor="street">Street Address</Label>
+                <Input
+                  id="street"
+                  data-testid="input-street"
+                  value={formData.street}
+                  onChange={(e) => setFormData((f) => ({ ...f, street: e.target.value }))}
+                  placeholder="123 Main St"
+                />
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="city">City</Label>
                 <Input
                   id="city"
@@ -262,7 +273,7 @@ export default function Home() {
                 onClick={() => setStep(2)}
                 disabled={
                   !formData.customerName || !formData.phone || !formData.email ||
-                  !formData.city || !formData.state || !formData.zip
+                  !formData.street || !formData.city || !formData.state || !formData.zip
                 }
               >
                 Next Step
