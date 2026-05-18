@@ -51,7 +51,9 @@ export const CreateEstimateBody = zod.object({
   "crackFillPrice": zod.number().nullish().describe('Additional crack fill price if selected'),
   "totalPrice": zod.number().describe('Total estimated price'),
   "hasCrackFill": zod.boolean().describe('Whether crack fill was selected'),
-  "notes": zod.string().nullish().describe('Optional notes')
+  "notes": zod.string().nullish().describe('Optional notes'),
+  "marketingConsent": zod.boolean().optional().describe('Whether customer opted into marketing communications'),
+  "promoCode": zod.string().nullish().describe('Promotional code applied to this estimate')
 })
 
 

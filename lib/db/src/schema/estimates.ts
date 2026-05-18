@@ -15,6 +15,8 @@ export const estimatesTable = pgTable("estimates", {
   totalPrice: real("total_price").notNull(),
   hasCrackFill: boolean("has_crack_fill").notNull().default(false),
   notes: text("notes"),
+  marketingConsent: boolean("marketing_consent").notNull().default(true),
+  promoCode: text("promo_code"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

@@ -31,4 +31,11 @@ export interface EstimateInput {
      * @nullable
      */
   notes?: string | null;
+  /** Whether customer opted into marketing communications */
+  marketingConsent?: boolean;
+  /**
+     * Promotional code applied to this estimate
+     * @nullable
+     */
+  promoCode?: string | null;
 }

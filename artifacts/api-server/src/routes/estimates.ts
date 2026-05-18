@@ -42,6 +42,8 @@ router.post("/estimates", async (req, res) => {
         totalPrice: parsed.data.totalPrice,
         hasCrackFill: parsed.data.hasCrackFill,
         notes: parsed.data.notes ?? null,
+        marketingConsent: parsed.data.marketingConsent ?? true,
+        promoCode: parsed.data.promoCode ?? null,
       })
       .returning();
 
@@ -56,6 +58,8 @@ router.post("/estimates", async (req, res) => {
       hasCrackFill: estimate.hasCrackFill,
       crackFillPrice: estimate.crackFillPrice,
       totalPrice: estimate.totalPrice,
+      marketingConsent: estimate.marketingConsent,
+      promoCode: estimate.promoCode ?? null,
       createdAt: estimate.createdAt,
     }).catch(() => {});
 

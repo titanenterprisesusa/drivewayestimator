@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useLocation } from "wouter";
 import { useCreateEstimate } from "@workspace/api-client-react";
 import { MapDraw } from "@/components/MapDraw";
@@ -30,6 +30,10 @@ function haversineMiles(lat1: number, lng1: number, lat2: number, lng2: number):
 export default function Home() {
   const [, setLocation] = useLocation();
   const createEstimate = useCreateEstimate();
+
+  // Detect promo code from URL param — e.g. ?promo=mailer (set on QR code mailers)
+  const promoCode = useMemo(() => new URLSearchParams(window.location.search).get("promo"), []);
+  const hasPromo = promoCode !== null;
 
   const [step, setStep] = useState(1);
   const [marketingConsent, setMarketingConsent] = useState(true);
@@ -85,13 +89,16 @@ export default function Home() {
 
     // $250 minimum applies to sealing + crack fill combined (before travel)
     const serviceSubtotal = Math.max(250, sealingRaw + crackFillPrice);
+    // Apply 15% promo discount if QR code was scanned
+    const discountAmount = hasPromo ? serviceSubtotal * 0.15 : 0;
+    const discountedSubtotal = serviceSubtotal - discountAmount;
     // Distribute minimum proportionally: base gets any minimum top-up
-    const basePrice = serviceSubtotal - crackFillPrice;
-    const totalPrice = serviceSubtotal + travelPremium;
-    return { basePrice, crackFillPrice, totalPrice };
+    const basePrice = discountedSubtotal - crackFillPrice;
+    const totalPrice = discountedSubtotal + travelPremium;
+    return { basePrice, crackFillPrice, discountAmount, totalPrice };
   };
 
-  const { basePrice, crackFillPrice, totalPrice } = calculatePricing();
+  const { basePrice, crackFillPrice, discountAmount, totalPrice } = calculatePricing();
 
   const rateLabel = (() => {
     const r = getSealRate(adjustedSqFt);
@@ -122,6 +129,8 @@ export default function Home() {
           totalPrice,
           hasCrackFill,
           notes: travelNote,
+          marketingConsent,
+          promoCode,
         },
       },
       {
@@ -328,6 +337,12 @@ export default function Home() {
 
               {/* Price Breakdown */}
               <div className="bg-primary/10 border border-primary/30 p-5 rounded-md space-y-3">
+                {hasPromo && (
+                  <div className="flex items-center justify-between bg-primary/20 border border-primary/50 rounded px-3 py-2">
+                    <span className="text-primary font-bold text-sm">🏷️ Mailer Promo — 15% Off Applied</span>
+                    <span className="text-primary font-bold text-sm">-${discountAmount.toFixed(2)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Driveway Sealing</span>
                   <span data-testid="text-base-price">${basePrice.toFixed(2)}</span>

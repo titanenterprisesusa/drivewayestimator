@@ -6,6 +6,7 @@ import { eq } from "drizzle-orm";
 import { logger } from "./logger";
 
 const SHEET_KEY = "google_sheet_id";
+const SHARE_EMAIL = "titanenterprisesusa@gmail.com";
 
 const HEADERS = [
   "Submission Date",
@@ -17,7 +18,9 @@ const HEADERS = [
   "Base Price",
   "Crack Fill",
   "Crack Fill Price",
+  "Promo Code",
   "Total Estimate",
+  "Marketing Opt-In",
 ];
 
 async function getConnectors() {
@@ -64,8 +67,33 @@ async function getOrCreateSpreadsheet(): Promise<string> {
     }),
   });
 
+  if (!createRes.ok) {
+    const errText = await createRes.text();
+    throw new Error(`Failed to create spreadsheet: ${createRes.status} ${errText}`);
+  }
+
   const sheet = await createRes.json() as { spreadsheetId: string };
   const sheetId = sheet.spreadsheetId;
+
+  // Share the sheet with the business email
+  try {
+    await connectors.proxy(
+      "google-sheet",
+      `/v2/files/${sheetId}/permissions`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          role: "writer",
+          type: "user",
+          emailAddress: SHARE_EMAIL,
+        }),
+      }
+    );
+    logger.info({ sheetId, email: SHARE_EMAIL }, "Shared Google Sheet with business email");
+  } catch (shareErr) {
+    logger.warn({ shareErr }, "Could not share sheet — it will still be accessible via Drive");
+  }
 
   await db.insert(settingsTable).values({ key: SHEET_KEY, value: sheetId });
   logger.info({ sheetId }, "Created new Google Sheet for estimates");
@@ -83,6 +111,8 @@ export async function appendEstimateToSheet(estimate: {
   hasCrackFill: boolean;
   crackFillPrice?: number | null;
   totalPrice: number;
+  marketingConsent: boolean;
+  promoCode?: string | null;
   createdAt: Date;
 }) {
   try {
@@ -101,11 +131,13 @@ export async function appendEstimateToSheet(estimate: {
       estimate.hasCrackFill && estimate.crackFillPrice
         ? `$${estimate.crackFillPrice.toFixed(2)}`
         : "—",
+      estimate.promoCode ?? "—",
       `$${estimate.totalPrice.toFixed(2)}`,
+      estimate.marketingConsent ? "✅" : "❌",
     ];
 
-    const range = encodeURIComponent("Estimates!A:J");
-    await connectors.proxy(
+    const range = encodeURIComponent("Estimates!A:L");
+    const appendRes = await connectors.proxy(
       "google-sheet",
       `/v4/spreadsheets/${sheetId}/values/${range}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
       {
@@ -115,8 +147,14 @@ export async function appendEstimateToSheet(estimate: {
       }
     );
 
+    if (!appendRes.ok) {
+      const errText = await appendRes.text();
+      throw new Error(`Sheets append failed: ${appendRes.status} ${errText}`);
+    }
+
     logger.info({ sheetId, customerName: estimate.customerName }, "Appended estimate to Google Sheet");
   } catch (err) {
-    logger.error({ err }, "Failed to append estimate to Google Sheet — skipping");
+    logger.error({ err }, "Failed to append estimate to Google Sheet");
+    throw err;
   }
 }
