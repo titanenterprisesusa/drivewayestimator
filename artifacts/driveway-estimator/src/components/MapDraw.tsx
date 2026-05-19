@@ -1,47 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-
-declare global {
-  interface Window {
-    __gmCallback?: () => void;
-    google: typeof google;
-  }
-}
-
-let _pendingCallbacks: Array<() => void> = [];
-
-function loadGoogleMapsScript(apiKey: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    // Already fully loaded
-    if (typeof window.google !== "undefined" && window.google.maps?.Map) {
-      return resolve();
-    }
-
-    // Script tag already in DOM — just wait for callback
-    if (document.querySelector('script[src*="maps.googleapis.com/maps/api/js"]')) {
-      _pendingCallbacks.push(resolve);
-      return;
-    }
-
-    // Fresh inject
-    _pendingCallbacks.push(resolve);
-
-    window.__gmCallback = () => {
-      delete window.__gmCallback;
-      const cbs = _pendingCallbacks.splice(0);
-      cbs.forEach((cb) => cb());
-    };
-
-    const script = document.createElement("script");
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&v=weekly&libraries=geometry,geocoding&callback=__gmCallback`;
-    script.async = true;
-    script.defer = true;
-    script.onerror = () => {
-      _pendingCallbacks.splice(0);
-      reject(new Error("Google Maps script failed to load. Verify the Maps JavaScript API is enabled in Google Cloud Console."));
-    };
-    document.head.appendChild(script);
-  });
-}
+import { loadGoogleMapsScript, fetchMapsApiKey } from "@/lib/maps";
 
 export function MapDraw({
   address,

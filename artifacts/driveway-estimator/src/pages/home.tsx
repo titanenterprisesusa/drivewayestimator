@@ -1,7 +1,8 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useCreateEstimate } from "@workspace/api-client-react";
 import { MapDraw } from "@/components/MapDraw";
+import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import { TitanHeader } from "@/components/TitanHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { loadGoogleMapsScript, fetchMapsApiKey } from "@/lib/maps";
 
 // Titan Enterprises HQ: 821 Post Road, Warwick, RI 02888
 const HQ_LAT = 41.7065;
@@ -27,9 +29,23 @@ function haversineMiles(lat1: number, lng1: number, lat2: number, lng2: number):
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+// Tiered area buffer: larger driveways get a smaller buffer
+function getBufferMultiplier(rawSqFt: number): number {
+  if (rawSqFt <= 1000) return 1.20;
+  if (rawSqFt <= 1500) return 1.15;
+  return 1.10;
+}
+
 export default function Home() {
   const [, setLocation] = useLocation();
   const createEstimate = useCreateEstimate();
+
+  // Eagerly load Google Maps (with Places) so autocomplete is ready on step 1
+  useEffect(() => {
+    fetchMapsApiKey().then((key) => {
+      if (key) loadGoogleMapsScript(key).catch(() => {});
+    });
+  }, []);
 
   // Detect promo code from URL param — e.g. ?promo=mailer (set on QR code mailers)
   const promoCode = useMemo(() => new URLSearchParams(window.location.search).get("promo"), []);
@@ -56,14 +72,15 @@ export default function Home() {
   const [customerCoords, setCustomerCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [hasCrackFill, setHasCrackFill] = useState(false);
 
-  // Always apply 10% buffer to the drawn area
-  const adjustedSqFt = rawSqFt > 0 ? Math.round(rawSqFt * 1.1) : 0;
+  // Apply tiered buffer to the drawn area
+  const adjustedSqFt = rawSqFt > 0 ? Math.round(rawSqFt * getBufferMultiplier(rawSqFt)) : 0;
 
-  // Travel premium: $2/mile if 20+ miles from HQ
+  // Travel premium: $25 per 10 miles beyond the first 10 miles free
+  // Actuates on the 11th mile, 21st mile, 31st mile, etc.
   const distanceMiles =
     customerCoords ? haversineMiles(HQ_LAT, HQ_LNG, customerCoords.lat, customerCoords.lng) : 0;
-  const travelMiles = distanceMiles >= 20 ? Math.round(distanceMiles) : 0;
-  const travelPremium = travelMiles > 0 ? travelMiles * 2 : 0;
+  const travelPremium =
+    distanceMiles > 10 ? Math.ceil((distanceMiles - 10) / 10) * 25 : 0;
 
   const getSealRate = (sqFt: number): number => {
     if (sqFt <= 750)    return 0.35;
@@ -93,27 +110,28 @@ export default function Home() {
       }
     }
 
-    // $250 minimum before any discount
-    const serviceSubtotalBeforeDiscount = Math.max(250, sealingRaw + crackFillPrice);
-    // Apply 15% promo discount but never let the post-discount total fall below $225
+    // Minimum: $250 sealing only, $300 when crack fill is added
+    const minimum = hasCrackFill ? 300 : 250;
+    const serviceSubtotalBeforeDiscount = Math.max(minimum, sealingRaw + crackFillPrice);
+
+    // Promo: 15% off, but post-discount total can never fall below 90% of the minimum
+    const promoFloor = hasPromo ? Math.max(225, minimum * 0.85) : minimum;
     const discountedSubtotal = hasPromo
-      ? Math.max(225, serviceSubtotalBeforeDiscount * 0.85)
+      ? Math.max(promoFloor, serviceSubtotalBeforeDiscount * 0.85)
       : serviceSubtotalBeforeDiscount;
     const discountAmount = serviceSubtotalBeforeDiscount - discountedSubtotal;
+
     const basePrice = discountedSubtotal - crackFillPrice;
     const totalPrice = discountedSubtotal + travelPremium;
-    return { basePrice, crackFillPrice, discountAmount, totalPrice };
+    return { basePrice, crackFillPrice, discountAmount, totalPrice, serviceSubtotalBeforeDiscount };
   };
 
   const { basePrice, crackFillPrice, discountAmount, totalPrice } = calculatePricing();
 
+  // Always show the real effective rate the customer is being charged per sq ft
   const rateLabel = (() => {
     if (adjustedSqFt === 0) return `$${getSealRate(0).toFixed(2)}/sq ft`;
-    const r = getSealRate(adjustedSqFt);
-    const sealingRaw = adjustedSqFt * r;
-    // If the raw sealing cost falls below the $250 minimum, show the effective rate
-    const effectiveRate = sealingRaw < 250 ? 250 / adjustedSqFt : r;
-    return `$${effectiveRate.toFixed(2)}/sq ft`;
+    return `$${(basePrice / adjustedSqFt).toFixed(2)}/sq ft`;
   })();
 
   const handleAreaCalculated = (sqFt: number, lat: number, lng: number) => {
@@ -126,7 +144,7 @@ export default function Home() {
   const handleSubmit = () => {
     const travelNote =
       travelPremium > 0
-        ? `Travel premium: $${travelPremium.toFixed(2)} (${travelMiles} mi @ $2/mi)`
+        ? `Travel premium: $${travelPremium.toFixed(2)} (${Math.round(distanceMiles)} mi, $25/10mi)`
         : null;
 
     createEstimate.mutate(
@@ -225,11 +243,13 @@ export default function Home() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="street">Street Address</Label>
-                <Input
+                <AddressAutocomplete
                   id="street"
-                  data-testid="input-street"
                   value={formData.street}
-                  onChange={(e) => setFormData((f) => ({ ...f, street: e.target.value }))}
+                  onChange={(val) => setFormData((f) => ({ ...f, street: val }))}
+                  onPlaceSelected={(street, city, state, zip) =>
+                    setFormData((f) => ({ ...f, street, city, state, zip }))
+                  }
                   placeholder="123 Main St"
                 />
               </div>
@@ -288,8 +308,8 @@ export default function Home() {
             <CardContent className="pt-6 space-y-4">
               <h2 className="text-xl font-bold">Measure Your Driveway</h2>
               <p className="text-sm text-muted-foreground">
-                Zoom in on your driveway, then click to place points around its outline. Click near
-                the first point — or tap <strong className="text-foreground">Close Shape</strong> — to
+                Zoom in on your driveway, then click to place points around its outline. Click the
+                first point — or tap <strong className="text-foreground">Close Shape</strong> — to
                 finish. You can drag any corner to adjust.
               </p>
 
@@ -348,7 +368,7 @@ export default function Home() {
                 {travelPremium > 0 && (
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Distance from Warwick, RI</span>
-                    <span className="font-semibold">{travelMiles} miles</span>
+                    <span className="font-semibold">{Math.round(distanceMiles)} miles</span>
                   </div>
                 )}
               </div>
@@ -405,7 +425,7 @@ export default function Home() {
                 {travelPremium > 0 && (
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">
-                      Travel Premium ({travelMiles} mi)
+                      Travel Premium ({Math.round(distanceMiles)} mi)
                     </span>
                     <span data-testid="text-travel-premium">${travelPremium.toFixed(2)}</span>
                   </div>
