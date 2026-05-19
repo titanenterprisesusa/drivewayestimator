@@ -29,6 +29,11 @@ function haversineMiles(lat1: number, lng1: number, lat2: number, lng2: number):
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+// Round a price to the nearest $5
+function roundToFive(value: number): number {
+  return Math.round(value / 5) * 5;
+}
+
 // Tiered area buffer: larger driveways get a smaller buffer
 function getBufferMultiplier(rawSqFt: number): number {
   if (rawSqFt <= 1000) return 1.20;
@@ -121,8 +126,10 @@ export default function Home() {
       : serviceSubtotalBeforeDiscount;
     const discountAmount = serviceSubtotalBeforeDiscount - discountedSubtotal;
 
-    const basePrice = discountedSubtotal - crackFillPrice;
-    const totalPrice = discountedSubtotal + travelPremium;
+    const rawTotal = discountedSubtotal + travelPremium;
+    const totalPrice = roundToFive(rawTotal);
+    // Absorb rounding difference into the sealing line so items always add up
+    const basePrice = discountedSubtotal - crackFillPrice + (totalPrice - rawTotal);
     return { basePrice, crackFillPrice, discountAmount, totalPrice, serviceSubtotalBeforeDiscount };
   };
 
