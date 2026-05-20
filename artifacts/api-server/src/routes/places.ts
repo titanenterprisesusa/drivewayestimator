@@ -21,6 +21,13 @@ router.get("/places/autocomplete", async (req, res) => {
         input,
         includedRegionCodes: ["US"],
         includedPrimaryTypes: ["street_address", "premise"],
+        // Bias toward Warwick, RI — RI/MA/CT show up first, far-away results ranked lower
+        locationBias: {
+          circle: {
+            center: { latitude: 41.7065, longitude: -71.4538 },
+            radius: 200000, // ~125 miles — covers RI, MA, CT, southern NH/VT, eastern NY
+          },
+        },
       }),
     });
 
