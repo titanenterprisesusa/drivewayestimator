@@ -25,7 +25,7 @@ router.get("/places/autocomplete", async (req, res) => {
         locationBias: {
           circle: {
             center: { latitude: 41.7065, longitude: -71.4538 },
-            radius: 200000, // ~125 miles — covers RI, MA, CT, southern NH/VT, eastern NY
+            radius: 50000, // 50km (~31 miles) — max allowed; biases toward RI/nearby MA & CT
           },
         },
       }),
