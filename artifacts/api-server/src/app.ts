@@ -25,7 +25,13 @@ app.use(
     },
   }),
 );
-app.use(cors());
+// CORS_ORIGIN: set this to your Netlify URL in Replit's environment variables
+// e.g. https://your-site.netlify.app — comma-separate multiple origins if needed.
+// Falls back to open CORS in development when the variable is not set.
+const corsOrigins = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(",").map((o) => o.trim())
+  : true;
+app.use(cors({ origin: corsOrigins }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
