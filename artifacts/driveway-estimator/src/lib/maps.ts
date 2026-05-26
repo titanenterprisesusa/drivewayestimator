@@ -39,7 +39,8 @@ export function loadGoogleMapsScript(apiKey: string): Promise<void> {
 }
 
 export async function fetchMapsApiKey(): Promise<string> {
-  const res = await fetch("/api/config");
+  const base = (import.meta.env.VITE_API_URL ?? "").replace(/\/+$/, "");
+  const res = await fetch(`${base}/api/config`);
   const data = await res.json();
   return data.googleMapsApiKey ?? "";
 }

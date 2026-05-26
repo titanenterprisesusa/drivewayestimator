@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { loadGoogleMapsScript, fetchMapsApiKey } from "@/lib/maps";
+import { apiUrl } from "@/lib/api-base";
 
 export function MapDraw({
   address,
@@ -119,7 +120,7 @@ export function MapDraw({
 
     const init = async () => {
       try {
-        const res = await fetch("/api/config");
+        const res = await fetch(apiUrl("/api/config"));
         const data = await res.json();
         const apiKey: string = data.googleMapsApiKey ?? "";
         if (!apiKey) throw new Error("No API key returned from server.");

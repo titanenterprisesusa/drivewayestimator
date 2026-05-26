@@ -1,5 +1,6 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import { Input } from "@/components/ui/input";
+import { apiUrl } from "@/lib/api-base";
 
 interface Prediction {
   placeId: string;
@@ -40,7 +41,7 @@ export function AddressAutocomplete({ id, value, onChange, onPlaceSelected, plac
     }
     setLoading(true);
     try {
-      const res = await fetch(`/api/places/autocomplete?input=${encodeURIComponent(input)}`);
+      const res = await fetch(apiUrl(`/api/places/autocomplete?input=${encodeURIComponent(input)}`));
       const data = await res.json() as { predictions?: Prediction[]; error?: string };
       const preds = data.predictions ?? [];
       setPredictions(preds);
@@ -65,7 +66,7 @@ export function AddressAutocomplete({ id, value, onChange, onPlaceSelected, plac
     onChange(pred.description); // optimistic — replaced below if details succeed
 
     try {
-      const res = await fetch(`/api/places/details?placeId=${encodeURIComponent(pred.placeId)}`);
+      const res = await fetch(apiUrl(`/api/places/details?placeId=${encodeURIComponent(pred.placeId)}`));
       const data = await res.json() as {
         components?: { longText: string; shortText: string; types: string[] }[];
       };
