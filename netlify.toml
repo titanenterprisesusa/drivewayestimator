@@ -1,0 +1,9 @@
+[build]
+  base    = "artifacts/driveway-estimator"
+  command = "cd ../.. && BASE_PATH=/ PORT=3000 pnpm --filter @workspace/driveway-estimator run build"
+  publish = "dist/public"
+
+[[redirects]]
+  from   = "/*"
+  to     = "/index.html"
+  status = 200
