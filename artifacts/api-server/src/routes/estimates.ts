@@ -1,10 +1,7 @@
 import { Router } from "express";
 import { db, estimatesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import {
-  CreateEstimateBody,
-  GetEstimateParams,
-} from "@workspace/api-zod";
+import { CreateEstimateBody, GetEstimateParams } from "@workspace/api-zod";
 import { appendEstimateToSheet } from "../lib/googleSheets";
 
 const router = Router();
@@ -16,8 +13,13 @@ router.get("/estimates", async (_req, res) => {
       .from(estimatesTable)
       .orderBy(estimatesTable.createdAt);
     res.json(estimates);
-  } catch (err) {
-    res.status(500).json({ error: "Failed to fetch estimates" });
+  } catch (error) {
+    console.error("Estimate POST error full:", error);
+    res.status(500).json({
+      error: String(error),
+      detail: error instanceof Error ? error.message : JSON.stringify(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
   }
 });
 
@@ -64,8 +66,13 @@ router.post("/estimates", async (req, res) => {
     }).catch(() => {});
 
     res.status(201).json(estimate);
-  } catch (err) {
-    res.status(500).json({ error: "Failed to create estimate" });
+  } catch (error) {
+    console.error("Estimate POST error full:", error);
+    res.status(500).json({
+      error: String(error),
+      detail: error instanceof Error ? error.message : JSON.stringify(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
   }
 });
 
@@ -85,8 +92,13 @@ router.get("/estimates/:id", async (req, res) => {
       return;
     }
     res.json(estimate);
-  } catch (err) {
-    res.status(500).json({ error: "Failed to fetch estimate" });
+  } catch (error) {
+    console.error("Estimate POST error full:", error);
+    res.status(500).json({
+      error: String(error),
+      detail: error instanceof Error ? error.message : JSON.stringify(error),
+      stack: error instanceof Error ? error.stack : undefined,
+    });
   }
 });
 
