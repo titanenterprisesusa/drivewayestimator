@@ -24,6 +24,7 @@ export async function appendEstimateToSheet(estimate: {
   totalPrice: number;
   marketingConsent: boolean;
   promoCode?: string | null;
+  requestedService: boolean;
   createdAt: Date;
 }) {
   try {
@@ -31,38 +32,37 @@ export async function appendEstimateToSheet(estimate: {
     const sheets = google.sheets({ version: "v4", auth });
 
     const row = [
-      estimate.createdAt.toLocaleString("en-US", {
-        timeZone: "America/New_York",
-      }),
+      estimate.createdAt.toLocaleString("en-US", { timeZone: "America/New_York" }),
       estimate.customerName,
       estimate.phone,
       estimate.email,
       estimate.address,
-      estimate.squareFootage.toString(),
-      `$${estimate.basePrice.toFixed(2)}`,
-      estimate.hasCrackFill ? "Yes" : "No",
-      estimate.hasCrackFill && estimate.crackFillPrice
+      estimate.squareFootage > 0 ? estimate.squareFootage.toString() : "—",
+      estimate.squareFootage > 0 ? `$${estimate.basePrice.toFixed(2)}` : "—",
+      estimate.squareFootage > 0 ? (estimate.hasCrackFill ? "Yes" : "No") : "—",
+      estimate.squareFootage > 0 && estimate.hasCrackFill && estimate.crackFillPrice
         ? `$${estimate.crackFillPrice.toFixed(2)}`
         : "—",
       estimate.promoCode ?? "—",
-      `$${estimate.totalPrice.toFixed(2)}`,
+      estimate.squareFootage > 0 ? `$${estimate.totalPrice.toFixed(2)}` : "—",
       estimate.marketingConsent ? "Yes" : "No",
+      estimate.requestedService ? "Yes" : "No",
     ];
 
     await sheets.spreadsheets.values.append({
       spreadsheetId: SHEET_ID,
-      range: "Estimates!A:L",
+      range: "Estimates!A:M",
       valueInputOption: "USER_ENTERED",
       insertDataOption: "INSERT_ROWS",
       requestBody: { values: [row] },
     });
 
     logger.info(
-      { customerName: estimate.customerName },
-      "Appended estimate to Google Sheet",
+      { customerName: estimate.customerName, requestedService: estimate.requestedService },
+      "Appended to Google Sheet",
     );
   } catch (err) {
-    logger.error({ err }, "Failed to append estimate to Google Sheet");
+    logger.error({ err }, "Failed to append to Google Sheet");
     throw err;
   }
 }

@@ -46,6 +46,7 @@ router.post("/estimates", async (req, res) => {
         notes: parsed.data.notes ?? null,
         marketingConsent: parsed.data.marketingConsent ?? true,
         promoCode: parsed.data.promoCode ?? null,
+        requestedService: true,
       })
       .returning();
 
@@ -62,6 +63,7 @@ router.post("/estimates", async (req, res) => {
       totalPrice: estimate.totalPrice,
       marketingConsent: estimate.marketingConsent,
       promoCode: estimate.promoCode ?? null,
+      requestedService: true,
       createdAt: estimate.createdAt,
     }).catch(() => {});
 

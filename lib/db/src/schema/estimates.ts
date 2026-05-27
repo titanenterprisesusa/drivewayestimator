@@ -17,6 +17,7 @@ export const estimatesTable = pgTable("estimates", {
   notes: text("notes"),
   marketingConsent: boolean("marketing_consent").notNull().default(true),
   promoCode: text("promo_code"),
+  requestedService: boolean("requested_service").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

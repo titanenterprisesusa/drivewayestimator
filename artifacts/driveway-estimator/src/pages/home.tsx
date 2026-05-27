@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { useCreateEstimate } from "@workspace/api-client-react";
 import { MapDraw } from "@/components/MapDraw";
@@ -11,6 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { loadGoogleMapsScript, fetchMapsApiKey } from "@/lib/maps";
+import { apiUrl } from "@/lib/api-base";
 
 // Titan Enterprises HQ: 821 Post Road, Warwick, RI 02888
 const HQ_LAT = 41.7065;
@@ -29,12 +30,10 @@ function haversineMiles(lat1: number, lng1: number, lat2: number, lng2: number):
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-// Round a price to the nearest $5
 function roundToFive(value: number): number {
   return Math.round(value / 5) * 5;
 }
 
-// Tiered area buffer: larger driveways get a smaller buffer
 function getBufferMultiplier(rawSqFt: number): number {
   if (rawSqFt <= 1000) return 1.20;
   if (rawSqFt <= 1500) return 1.15;
@@ -45,19 +44,20 @@ export default function Home() {
   const [, setLocation] = useLocation();
   const createEstimate = useCreateEstimate();
 
-  // Eagerly load Google Maps (with Places) so autocomplete is ready on step 1
   useEffect(() => {
     fetchMapsApiKey().then((key) => {
       if (key) loadGoogleMapsScript(key).catch(() => {});
     });
   }, []);
 
-  // Detect promo code from URL param — e.g. ?promo=mailer (set on QR code mailers)
   const promoCode = useMemo(() => new URLSearchParams(window.location.search).get("promo"), []);
   const hasPromo = promoCode !== null;
 
   const [step, setStep] = useState(1);
   const [marketingConsent, setMarketingConsent] = useState(true);
+  const [leadSaving, setLeadSaving] = useState(false);
+  const leadSavedRef = useRef(false);
+
   const [formData, setFormData] = useState({
     customerName: "",
     phone: "",
@@ -68,20 +68,14 @@ export default function Home() {
     zip: "",
   });
 
-  // Full address string used for geocoding the map and stored in DB/Sheets
   const address = [formData.street, formData.city, formData.state, formData.zip].filter(Boolean).join(", ");
 
-  // Raw area from polygon draw
   const [rawSqFt, setRawSqFt] = useState(0);
-  // Geocoded customer coords (set when map geocodes the address)
   const [customerCoords, setCustomerCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [hasCrackFill, setHasCrackFill] = useState(false);
 
-  // Apply tiered buffer to the drawn area
   const adjustedSqFt = rawSqFt > 0 ? Math.round(rawSqFt * getBufferMultiplier(rawSqFt)) : 0;
 
-  // Travel premium: $25 per 10 miles beyond the first 10 miles free
-  // Actuates on the 11th mile, 21st mile, 31st mile, etc.
   const distanceMiles =
     customerCoords ? haversineMiles(HQ_LAT, HQ_LNG, customerCoords.lat, customerCoords.lng) : 0;
   const travelPremium =
@@ -110,16 +104,13 @@ export default function Home() {
       if (adjustedSqFt <= 750) crackFillPrice = 50;
       else if (adjustedSqFt <= 1500) crackFillPrice = 65;
       else {
-        // $80 base for 1500–2000 sq ft, +$10 per additional 200 sq ft above 2000
         crackFillPrice = 80 + Math.ceil(Math.max(0, adjustedSqFt - 2000) / 200) * 10;
       }
     }
 
-    // Minimum: $250 sealing only, $300 when crack fill is added
     const minimum = hasCrackFill ? 300 : 250;
     const serviceSubtotalBeforeDiscount = Math.max(minimum, sealingRaw + crackFillPrice);
 
-    // Promo: 15% off, but post-discount total can never fall below 90% of the minimum
     const promoFloor = hasPromo ? Math.max(225, minimum * 0.85) : minimum;
     const discountedSubtotal = hasPromo
       ? Math.max(promoFloor, serviceSubtotalBeforeDiscount * 0.85)
@@ -128,14 +119,12 @@ export default function Home() {
 
     const rawTotal = discountedSubtotal + travelPremium;
     const totalPrice = roundToFive(rawTotal);
-    // Absorb rounding difference into the sealing line so items always add up
     const basePrice = discountedSubtotal - crackFillPrice + (totalPrice - rawTotal);
     return { basePrice, crackFillPrice, discountAmount, totalPrice, serviceSubtotalBeforeDiscount };
   };
 
   const { basePrice, crackFillPrice, discountAmount, totalPrice } = calculatePricing();
 
-  // Always show the real effective rate the customer is being charged per sq ft
   const rateLabel = (() => {
     if (adjustedSqFt === 0) return `$${getSealRate(0).toFixed(2)}/sq ft`;
     return `$${(basePrice / adjustedSqFt).toFixed(2)}/sq ft`;
@@ -143,8 +132,31 @@ export default function Home() {
 
   const handleAreaCalculated = (sqFt: number, lat: number, lng: number) => {
     setRawSqFt(sqFt);
-    if (lat !== 0 && lng !== 0) {
-      setCustomerCoords({ lat, lng });
+    if (lat !== 0 && lng !== 0) setCustomerCoords({ lat, lng });
+  };
+
+  // Capture the lead when leaving step 1 — fire-and-forget, never blocks navigation
+  const handleStep1Next = async () => {
+    setStep(2);
+    if (leadSavedRef.current) return;
+    leadSavedRef.current = true;
+    setLeadSaving(true);
+    try {
+      await fetch(apiUrl("/api/leads"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customerName: formData.customerName,
+          phone: formData.phone,
+          email: formData.email,
+          address,
+          marketingConsent,
+        }),
+      });
+    } catch {
+      // Silent — lead capture should never disrupt the user flow
+    } finally {
+      setLeadSaving(false);
     }
   };
 
@@ -294,11 +306,31 @@ export default function Home() {
                   />
                 </div>
               </div>
+
+              {/* Marketing consent — pre-checked, user must manually uncheck */}
+              <div className="flex items-start gap-3 pt-1 pb-1">
+                <Checkbox
+                  id="marketing-consent"
+                  checked={marketingConsent}
+                  onCheckedChange={(v) => setMarketingConsent(Boolean(v))}
+                  className="mt-0.5 shrink-0"
+                />
+                <label
+                  htmlFor="marketing-consent"
+                  className="text-xs text-muted-foreground leading-relaxed cursor-pointer"
+                >
+                  I consent to receive promotional communications, service updates, and marketing
+                  materials from Titan Enterprises via email or phone. You may withdraw consent at
+                  any time by contacting us directly.
+                </label>
+              </div>
+
               <Button
                 data-testid="button-next-step-1"
-                className="w-full mt-4"
-                onClick={() => setStep(2)}
+                className="w-full mt-2"
+                onClick={handleStep1Next}
                 disabled={
+                  leadSaving ||
                   !formData.customerName || !formData.phone || !formData.email ||
                   !formData.street || !formData.city || !formData.state || !formData.zip
                 }
@@ -442,29 +474,10 @@ export default function Home() {
                   <span>Estimated Total</span>
                   <span data-testid="text-total-price">${totalPrice.toFixed(2)}</span>
                 </div>
-
-                {/* Disclaimer */}
                 <p className="text-xs text-muted-foreground italic leading-relaxed pt-1 border-t border-border/50">
                   This estimate is only valid if the actual driveway size is within 10% of the
                   measured area. Final pricing confirmed on-site.
                 </p>
-              </div>
-
-              <div className="flex items-start gap-3 pt-2 pb-1">
-                <Checkbox
-                  id="marketing-consent"
-                  checked={marketingConsent}
-                  onCheckedChange={(v) => setMarketingConsent(Boolean(v))}
-                  className="mt-0.5 shrink-0"
-                />
-                <label
-                  htmlFor="marketing-consent"
-                  className="text-xs text-muted-foreground leading-relaxed cursor-pointer"
-                >
-                  I consent to receive promotional communications, service updates, and marketing
-                  materials from Titan Enterprises via email or phone. You may withdraw consent at
-                  any time by contacting us directly.
-                </label>
               </div>
 
               <div className="flex gap-3 pt-1">
