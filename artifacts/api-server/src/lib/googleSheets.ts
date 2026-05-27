@@ -51,7 +51,7 @@ export async function appendEstimateToSheet(estimate: {
 
     await sheets.spreadsheets.values.append({
       spreadsheetId: SHEET_ID,
-      range: "Sheet1!A:L",
+      range: "Estimates!A:L",
       valueInputOption: "USER_ENTERED",
       insertDataOption: "INSERT_ROWS",
       requestBody: { values: [row] },
