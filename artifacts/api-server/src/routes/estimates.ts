@@ -3,6 +3,7 @@ import { db, estimatesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { CreateEstimateBody, GetEstimateParams } from "@workspace/api-zod";
 import { appendEstimateToSheet } from "../lib/googleSheets";
+import { sendNotificationEmail } from "../lib/mailer";
 
 const router = Router();
 
@@ -66,6 +67,21 @@ router.post("/estimates", async (req, res) => {
       requestedService: true,
       createdAt: estimate.createdAt,
     }).catch(() => {});
+
+    // Fire-and-forget: send email notification to business owner
+    sendNotificationEmail({
+      customerName: estimate.customerName,
+      phone: estimate.phone,
+      email: estimate.email,
+      address: estimate.address,
+      hasCrackFill: estimate.hasCrackFill,
+      crackFillPrice: estimate.crackFillPrice,
+      squareFootage: estimate.squareFootage,
+      basePrice: estimate.basePrice,
+      totalPrice: estimate.totalPrice,
+      promoCode: estimate.promoCode ?? null,
+      createdAt: estimate.createdAt,
+    }).catch((err) => console.error("Notification email failed:", err));
 
     res.status(201).json(estimate);
   } catch (error) {
