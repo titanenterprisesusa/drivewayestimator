@@ -58,6 +58,13 @@ export default function Home() {
   const [leadSaving, setLeadSaving] = useState(false);
   const leadSavedRef = useRef(false);
 
+  const [fieldErrors, setFieldErrors] = useState<{
+    customerName: string;
+    phone: string;
+    email: string;
+    street: string;
+  }>({ customerName: "", phone: "", email: "", street: "" });
+
   const [formData, setFormData] = useState({
     customerName: "",
     phone: "",
@@ -137,6 +144,15 @@ export default function Home() {
 
   // Capture the lead when leaving step 1 — fire-and-forget, never blocks navigation
   const handleStep1Next = async () => {
+    const errors = {
+      customerName: formData.customerName.trim() ? "" : "Full name is required",
+      phone: formData.phone.trim() ? "" : "Phone number is required",
+      email: formData.email.trim() ? "" : "Email address is required",
+      street: formData.street.trim() ? "" : "Street address is required",
+    };
+    setFieldErrors(errors);
+    if (Object.values(errors).some((e) => e)) return;
+
     setStep(2);
     if (leadSavedRef.current) return;
     leadSavedRef.current = true;
@@ -235,9 +251,16 @@ export default function Home() {
                   id="name"
                   data-testid="input-name"
                   value={formData.customerName}
-                  onChange={(e) => setFormData((f) => ({ ...f, customerName: e.target.value }))}
+                  onChange={(e) => {
+                    setFormData((f) => ({ ...f, customerName: e.target.value }));
+                    if (e.target.value.trim()) setFieldErrors((fe) => ({ ...fe, customerName: "" }));
+                  }}
                   placeholder="John Doe"
+                  className={fieldErrors.customerName ? "border-red-500 focus-visible:ring-red-500" : ""}
                 />
+                {fieldErrors.customerName && (
+                  <p className="text-sm text-red-500">{fieldErrors.customerName}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="phone">Phone Number</Label>
@@ -245,9 +268,16 @@ export default function Home() {
                   id="phone"
                   data-testid="input-phone"
                   value={formData.phone}
-                  onChange={(e) => setFormData((f) => ({ ...f, phone: e.target.value }))}
+                  onChange={(e) => {
+                    setFormData((f) => ({ ...f, phone: e.target.value }));
+                    if (e.target.value.trim()) setFieldErrors((fe) => ({ ...fe, phone: "" }));
+                  }}
                   placeholder="(555) 555-5555"
+                  className={fieldErrors.phone ? "border-red-500 focus-visible:ring-red-500" : ""}
                 />
+                {fieldErrors.phone && (
+                  <p className="text-sm text-red-500">{fieldErrors.phone}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email">Email Address</Label>
@@ -256,21 +286,35 @@ export default function Home() {
                   data-testid="input-email"
                   type="email"
                   value={formData.email}
-                  onChange={(e) => setFormData((f) => ({ ...f, email: e.target.value }))}
+                  onChange={(e) => {
+                    setFormData((f) => ({ ...f, email: e.target.value }));
+                    if (e.target.value.trim()) setFieldErrors((fe) => ({ ...fe, email: "" }));
+                  }}
                   placeholder="john@example.com"
+                  className={fieldErrors.email ? "border-red-500 focus-visible:ring-red-500" : ""}
                 />
+                {fieldErrors.email && (
+                  <p className="text-sm text-red-500">{fieldErrors.email}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="street">Street Address</Label>
                 <AddressAutocomplete
                   id="street"
                   value={formData.street}
-                  onChange={(val) => setFormData((f) => ({ ...f, street: val }))}
+                  onChange={(val) => {
+                    setFormData((f) => ({ ...f, street: val }));
+                    if (val.trim()) setFieldErrors((fe) => ({ ...fe, street: "" }));
+                  }}
                   onPlaceSelected={(street, city, state, zip) =>
                     setFormData((f) => ({ ...f, street, city, state, zip }))
                   }
                   placeholder="123 Main St"
+                  hasError={!!fieldErrors.street}
                 />
+                {fieldErrors.street && (
+                  <p className="text-sm text-red-500">{fieldErrors.street}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="city">City</Label>
@@ -329,11 +373,7 @@ export default function Home() {
                 data-testid="button-next-step-1"
                 className="w-full mt-2"
                 onClick={handleStep1Next}
-                disabled={
-                  leadSaving ||
-                  !formData.customerName || !formData.phone || !formData.email ||
-                  !formData.street || !formData.city || !formData.state || !formData.zip
-                }
+                disabled={leadSaving}
               >
                 Next Step
               </Button>

@@ -13,9 +13,10 @@ interface Props {
   onChange: (value: string) => void;
   onPlaceSelected: (street: string, city: string, state: string, zip: string) => void;
   placeholder?: string;
+  hasError?: boolean;
 }
 
-export function AddressAutocomplete({ id, value, onChange, onPlaceSelected, placeholder }: Props) {
+export function AddressAutocomplete({ id, value, onChange, onPlaceSelected, placeholder, hasError }: Props) {
   const [predictions, setPredictions] = useState<Prediction[]>([]);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -104,6 +105,7 @@ export function AddressAutocomplete({ id, value, onChange, onPlaceSelected, plac
         onBlur={() => setTimeout(() => setOpen(false), 150)}
         placeholder={placeholder ?? "123 Main St"}
         autoComplete="off"
+        className={hasError ? "border-red-500 focus-visible:ring-red-500" : ""}
       />
       {loading && (
         <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
