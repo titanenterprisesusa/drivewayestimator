@@ -144,11 +144,17 @@ export default function Home() {
 
   // Capture the lead when leaving step 1 — fire-and-forget, never blocks navigation
   const handleStep1Next = async () => {
+    const nameValid = /^[a-zA-Z\-]+([ ][a-zA-Z\-]+)+$/.test(formData.customerName.trim());
+    const phoneDigits = formData.phone.replace(/[\s\-().]/g, "");
+    const phoneValid = /^\d{10}$/.test(phoneDigits);
+    const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim());
+    const streetValid = /^\d+\s+\S/.test(formData.street.trim());
+
     const errors = {
-      customerName: formData.customerName.trim() ? "" : "Full name is required",
-      phone: formData.phone.trim() ? "" : "Phone number is required",
-      email: formData.email.trim() ? "" : "Email address is required",
-      street: formData.street.trim() ? "" : "Street address is required",
+      customerName: nameValid ? "" : "Please enter your first and last name",
+      phone: phoneValid ? "" : "Please enter a valid 10-digit phone number",
+      email: emailValid ? "" : "Please enter a valid email address",
+      street: streetValid ? "" : "Please enter a valid street address",
     };
     setFieldErrors(errors);
     if (Object.values(errors).some((e) => e)) return;
