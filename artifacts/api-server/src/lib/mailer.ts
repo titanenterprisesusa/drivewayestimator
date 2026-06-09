@@ -20,7 +20,12 @@ export async function sendNotificationEmail(data: NotificationEmailData): Promis
   const emailPass = process.env.EMAIL_PASS;
   const notifyEmail = process.env.NOTIFY_EMAIL;
 
+  console.log("[mailer] EMAIL_USER loaded:", !!emailUser);
+  console.log("[mailer] EMAIL_PASS loaded:", !!emailPass);
+  console.log("[mailer] NOTIFY_EMAIL loaded:", !!notifyEmail);
+
   if (!emailUser || !emailPass || !notifyEmail) {
+    console.warn("[mailer] Skipping email — one or more required secrets are missing (EMAIL_USER, EMAIL_PASS, NOTIFY_EMAIL)");
     logger.warn("Email notification skipped: EMAIL_USER, EMAIL_PASS, or NOTIFY_EMAIL not set");
     return;
   }
@@ -125,14 +130,20 @@ export async function sendNotificationEmail(data: NotificationEmailData): Promis
 </body>
 </html>`;
 
-  await transporter.sendMail({
-    from: `"Titan Enterprises Estimator" <${emailUser}>`,
-    to: notifyEmail,
-    subject: `New Driveway Estimate Request – ${data.customerName}`,
-    html,
-  });
-
-  logger.info({ to: notifyEmail, customerName: data.customerName }, "Notification email sent");
+  console.log("[mailer] Attempting to send email to:", notifyEmail, "for customer:", data.customerName);
+  try {
+    await transporter.sendMail({
+      from: `"Titan Enterprises Estimator" <${emailUser}>`,
+      to: notifyEmail,
+      subject: `New Driveway Estimate Request – ${data.customerName}`,
+      html,
+    });
+    console.log("[mailer] Email sent successfully to:", notifyEmail);
+    logger.info({ to: notifyEmail, customerName: data.customerName }, "Notification email sent");
+  } catch (err) {
+    console.error("[mailer] Email send FAILED — full error:", err);
+    throw err;
+  }
 }
 
 function escHtml(str: string): string {

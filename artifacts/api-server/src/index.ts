@@ -22,4 +22,8 @@ app.listen(port, (err) => {
   }
 
   logger.info({ port }, "Server listening");
+
+  console.log("[startup] EMAIL_USER loaded:", !!process.env.EMAIL_USER);
+  console.log("[startup] EMAIL_PASS loaded:", !!process.env.EMAIL_PASS);
+  console.log("[startup] NOTIFY_EMAIL loaded:", !!process.env.NOTIFY_EMAIL);
 });

@@ -5,6 +5,7 @@ import leadsRouter from "./leads";
 import qrRouter from "./qr";
 import configRouter from "./config";
 import placesRouter from "./places";
+import testEmailRouter from "./testEmail";
 
 const router: IRouter = Router();
 
@@ -14,5 +15,6 @@ router.use(leadsRouter);
 router.use(qrRouter);
 router.use(configRouter);
 router.use(placesRouter);
+router.use(testEmailRouter);
 
 export default router;
